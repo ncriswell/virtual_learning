@@ -2,17 +2,23 @@
 
 source("C:/virtual_learning/R/global.R")
 
-# where are the responses from?
-district_count0 <- resp_melt1 %>% 
-  filter(QUESTION_CODE == "DISTRICT") %>% 
-  mutate(School = fct_lump_min(RESPONSE, min = 2, other_level = "< 2 Responses")) %>% 
-  group_by(School) %>% 
-  summarise(Num_Resp = n()) %>% 
+
+dataframe %>%
+  mutate( across(contains('oo'), 
+                 .fns = list(cat = ~ntile(., 2))) )
+
+
+school_conf0 <- resp0 %>% 
+  group_by(School, CONFIDENCE) %>% 
+  summarise(Responses = n()) %>% 
   ungroup()
 
-ggplot(data = district_count0, aes(x = fct_reorder(School, Num_Resp), y = Num_Resp)) +
-  geom_segment(aes(xend = School, yend = 0)) + 
-  geom_point() + 
-  coord_flip()
+ggplot(data = school_conf0, aes(x = str_wrap(CONFIDENCE, 25), y = Responses)) +
+  geom_bar(stat = "identity", color = "black") + 
+  facet_wrap(~School) + 
+  coord_flip() + 
+  ggtitle("Virtual Learning Questionnaire - Confidence by District") +
+  theme_fivethirtyeight() + 
+  theme(strip.text.x = element_text(face = "bold"))
 
-# get the count of 
+# number of childred by age

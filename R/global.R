@@ -76,10 +76,64 @@ factors_step2 <- lapply(factors_step1, function(m) {
 })
 
 factors_step3 <- mapply(n = factors_step2, 
-                        m = list(names(factors_step2)), 
+                        m = names(factors_step2), 
                         FUN = function(m, n){
-                          names(n) <- paste0(m, names(n))
+                          names(n)[2:ncol(n)] <- paste0(m, "_", names(n)[2:ncol(n)])
+                          n
                         }, SIMPLIFY = FALSE)
+
+# This solution is so bad it should do 5 hail marys and 3 our fathers...Need to
+#  stick all of the factors together. 
+factors0 <- factors_step3[[1]] %>% 
+  left_join(factors_step3[[2]]) %>% 
+  left_join(factors_step3[[3]]) %>% 
+  left_join(factors_step3[[4]]) %>% 
+  left_join(factors_step3[[5]]) %>% 
+  left_join(factors_step3[[6]]) %>% 
+  left_join(factors_step3[[7]]) 
+
+# The accomodation column is a bit of a mess
+accm0 <- resp0 %>% 
+  select(RECORD_ID, ACCOMMODATIONS) %>% 
+  mutate(`ACCOMMODATIONS_Educator with experience teaching similar students (i.e. IEP, etc.)` = 
+           as.integer(grepl("Educator with experience", ACCOMMODATIONS)))
+
+
+table(resp0$ACCOMMODATIONS)
+
+# Ordinal variables. Some of them are Essential, others are Important
+ord_imp_vars <- col_ref0 %>% 
+  filter(CAT == "ORDINAL_IMP") %>% 
+  pull(QUESTION_CODE)
+
+ord_imp0 <- resp0 %>% 
+  select(RECORD_ID, all_of(ord_imp_vars)) %>% 
+  mutate_at(vars(contains("BENEFIT")), .funs = ~imp_ref0$CODE[match(str_to_upper(.), imp_ref0$VALUE)])
+
+ord_ess_vars <- col_ref0 %>% 
+  filter(CAT == "ORDINAL_ESS") %>% 
+  pull(QUESTION_CODE)
+
+ord_ess0 <- resp0 %>% 
+  select(RECORD_ID, all_of(ord_ess_vars)) %>% 
+  mutate_at(vars(matches("POD_|SD_|SAFETY_")), .funs = ~ess_ref0$CODE[match(str_to_upper(.), ess_ref0$VALUE)])
+
+# Now we make the wide data set. The factors and ordinals have been transformed. 
+#  So we need to get the rest of the vars and stick the ordinals and factors 
+#  onto that. 
+
+not_ord_factor_vars <- col_ref0 %>% 
+  filter(!(CAT %in% c("ORDINAL_ESS", "ORDINAL_IMP", "FACTOR"))) %>% 
+  pull(QUESTION_CODE)
+
+resp_wide0 <- resp0 %>% 
+  select(RECORD_ID, all_of(not_ord_factor_vars)) 
+
+# now we add the factor and the ordinals onto this
+resp_wide1 <- resp_wide0 %>% 
+  left_join(factors0) %>% 
+  left_join(ord_imp0) %>% 
+  left_join(ord_ess0)
 
 write_sheet(resp_melt1, "https://docs.google.com/spreadsheets/d/1LQdxe44OHT_V1ksaISdo3lmagjkwV4m3QPC4zgnNbP8/edit#gid=0",
             sheet = "RESPONSE_MELT")
